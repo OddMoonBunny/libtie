@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from aiohttp import web
+import base64
+from io import BytesIO
+
+try:
+    from aiohttp import web
+except Exception:
+    web = None
 
 try:
     from server import PromptServer
@@ -81,8 +87,46 @@ class LibtiePushedPrompt:
         return positive, negative, int(payload.get("id") or 0)
 
 
+class LibtieSaveImageToGallery:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "category": ("STRING", {"default": "chars"}),
+                "build_dir": ("STRING", {"default": str(libtie_shared.PROMPT_LIBRARY_BUILD_DIR)}),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", "STRING")
+    RETURN_NAMES = ("image", "status")
+    FUNCTION = "save_image"
+    CATEGORY = "libtie"
+
+    def save_image(self, image, category, build_dir):
+        import numpy as np
+        from PIL import Image
+
+        first = image[0].detach().cpu().numpy()
+        pixels = np.clip(first * 255.0, 0, 255).astype(np.uint8)
+        pil_image = Image.fromarray(pixels)
+
+        buffer = BytesIO()
+        pil_image.save(buffer, format="PNG")
+        image_data = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+
+        result = libtie_shared.save_gallery_image(
+            {
+                "category": category,
+                "build_dir": build_dir,
+                "image": image_data,
+            }
+        )
+        return image, f"Saved {result['name']} to {result['category']}"
+
+
 def register_routes():
-    if PromptServer is None:
+    if PromptServer is None or web is None:
         return
 
     routes = PromptServer.instance.routes
@@ -96,6 +140,11 @@ def register_routes():
     async def latest_prompt(_request):
         return web.json_response(libtie_shared.LATEST_PUSHED_PROMPT)
 
+    @routes.post("/libtie/gallery")
+    async def save_gallery_image(request):
+        payload = await request.json()
+        return web.json_response(libtie_shared.save_gallery_image(payload))
+
 
 register_routes()
 
@@ -104,10 +153,12 @@ NODE_CLASS_MAPPINGS = {
     "LibtiePromptFromLibrary": LibtiePromptFromLibrary,
     "LibtiePromptByName": LibtiePromptByName,
     "LibtiePushedPrompt": LibtiePushedPrompt,
+    "LibtieSaveImageToGallery": LibtieSaveImageToGallery,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "LibtiePromptFromLibrary": "libtie Prompt From Library",
     "LibtiePromptByName": "libtie Prompt By Name",
     "LibtiePushedPrompt": "libtie Pushed Prompt",
+    "LibtieSaveImageToGallery": "libtie Save Image To Gallery",
 }

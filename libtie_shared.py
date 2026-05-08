@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import base64
+import re
+import uuid
 from pathlib import Path
 
 
@@ -10,6 +13,12 @@ DEFAULT_PROMPTS_PATH = Path(
     os.environ.get(
         "LIBTIE_PROMPTS_JSON",
         str(PROMPT_LIBRARY_ROOT / "bin" / "Debug" / "prompts.json"),
+    )
+)
+PROMPT_LIBRARY_BUILD_DIR = Path(
+    os.environ.get(
+        "LIBTIE_PROMPT_LIBRARY_BUILD_DIR",
+        str(PROMPT_LIBRARY_ROOT / "bin" / "Debug"),
     )
 )
 
@@ -145,3 +154,76 @@ def set_pushed_prompt(payload: dict) -> dict:
         }
     )
     return {"ok": True, "id": LATEST_PUSHED_PROMPT["id"]}
+
+
+def _safe_name(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_. -]+", "_", (value or "").strip())
+    cleaned = cleaned.strip(" .")
+    return cleaned or "chars"
+
+
+def _load_raw_prompt_data(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8-sig") as handle:
+        payload = json.load(handle)
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        categories = payload.get("Categories") or payload.get("categories")
+        return categories if isinstance(categories, list) else []
+    return []
+
+
+def _decode_data_url(data_url: str) -> tuple[bytes, str]:
+    match = re.match(r"^data:image/([a-zA-Z0-9.+-]+);base64,(.+)$", data_url or "", re.DOTALL)
+    if not match:
+        raise ValueError("Expected a base64 image data URL.")
+
+    ext = match.group(1).lower()
+    if ext == "jpeg":
+        ext = "jpg"
+    return base64.b64decode(match.group(2)), ext
+
+
+def save_gallery_image(payload: dict) -> dict:
+    category = _safe_name(str(payload.get("category") or payload.get("Category") or "chars"))
+    image_data = str(payload.get("image") or payload.get("image_data") or payload.get("Image") or "")
+    image_bytes, ext = _decode_data_url(image_data)
+
+    build_dir = Path(str(payload.get("build_dir") or PROMPT_LIBRARY_BUILD_DIR))
+    prompts_path = build_dir / "prompts.json"
+    image_dir = build_dir / "images" / category
+    image_dir.mkdir(parents=True, exist_ok=True)
+
+    entry_id = str(uuid.uuid4())
+    entry_name = f"{category}_gallery_{entry_id}"
+    dest_path = image_dir / f"{entry_name}.{ext}"
+    dest_path.write_bytes(image_bytes)
+
+    categories = _load_raw_prompt_data(prompts_path)
+    category_entry = None
+    for item in categories:
+        if isinstance(item, dict) and item.get("Category") == category:
+            category_entry = item
+            break
+
+    if category_entry is None:
+        category_entry = {"Category": category, "Prompts": []}
+        categories.append(category_entry)
+
+    prompts = category_entry.setdefault("Prompts", [])
+    prompts.append({"Name": entry_name, "Positive": "", "Negative": "", "ImagePath": str(dest_path)})
+
+    prompts_path.parent.mkdir(parents=True, exist_ok=True)
+    with prompts_path.open("w", encoding="utf-8") as handle:
+        json.dump(categories, handle, indent=2)
+        handle.write("\n")
+
+    return {
+        "ok": True,
+        "category": category,
+        "name": entry_name,
+        "image_path": str(dest_path),
+        "prompts_path": str(prompts_path),
+    }

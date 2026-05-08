@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 
 import gradio as gr
 from fastapi import Body
 
 from modules import script_callbacks, scripts
+
+EXTENSION_ROOT = Path(__file__).resolve().parents[1]
+if str(EXTENSION_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXTENSION_ROOT))
+
+import libtie_shared
 
 
 PROMPT_LIBRARY_ROOT = Path(os.environ.get("LIBTIE_PROMPT_LIBRARY_DIR", r"D:\Repo\lib"))
@@ -53,9 +60,14 @@ def latest_prompt():
     return LATEST_PUSHED_PROMPT
 
 
+def save_gallery_image(payload: dict = Body(...)):
+    return libtie_shared.save_gallery_image(payload)
+
+
 def register_routes(_demo, app):
     app.post("/libtie/prompt")(receive_prompt)
     app.get("/libtie/prompt")(latest_prompt)
+    app.post("/libtie/gallery")(save_gallery_image)
 
 
 script_callbacks.on_app_started(register_routes)

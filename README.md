@@ -31,6 +31,7 @@ The custom node package provides:
 - **libtie Prompt From Library** - loads a prompt from `prompts.json` using dropdowns.
 - **libtie Prompt By Name** - loads a prompt by typed category/name.
 - **libtie Pushed Prompt** - outputs the latest prompt pushed from the Prompt Library app.
+- **libtie Save Image To Gallery** - saves a workflow image into a Prompt Library category gallery.
 
 ## Usage
 
@@ -53,6 +54,28 @@ http://127.0.0.1:8188/libtie/prompt
 For A1111, the extension browser script applies the newest pushed prompt to txt2img.
 
 For ComfyUI, use the **libtie Pushed Prompt** node and connect its `positive` and `negative` outputs into your CLIP Text Encode nodes.
+
+### Drop A1111 Images Into A Prompt Library Gallery
+
+In A1111 txt2img, libtie adds a **PL** button near the result gallery controls. Select a generated image, click **PL**, and enter the Prompt Library category, such as:
+
+```text
+chars
+```
+
+The image is saved under:
+
+```text
+D:\Repo\lib\bin\Debug\images\<category>
+```
+
+The matching gallery entry is added to:
+
+```text
+D:\Repo\lib\bin\Debug\prompts.json
+```
+
+ComfyUI exposes the same save endpoint at `/libtie/gallery`, and the **libtie Save Image To Gallery** node is the Comfy-native version of the A1111 gallery button. Connect an `IMAGE`, set the category, and it saves into the Prompt Library gallery while passing the image through.
 
 ### Pull From Prompt Library In A1111
 
