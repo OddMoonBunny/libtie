@@ -75,8 +75,8 @@ class LibtiePushedPrompt:
     def INPUT_TYPES(cls):
         return {"required": {"fallback": ("STRING", {"default": ""})}}
 
-    RETURN_TYPES = ("STRING", "STRING", "INT")
-    RETURN_NAMES = ("positive", "negative", "push_id")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "INT")
+    RETURN_NAMES = ("positive", "negative", "category", "push_id")
     FUNCTION = "current_prompt"
     CATEGORY = "libtie"
 
@@ -84,7 +84,8 @@ class LibtiePushedPrompt:
         payload = libtie_shared.LATEST_PUSHED_PROMPT
         positive = payload.get("positive") or fallback
         negative = payload.get("negative") or ""
-        return positive, negative, int(payload.get("id") or 0)
+        category = payload.get("category") or ""
+        return positive, negative, category, int(payload.get("id") or 0)
 
 
 class LibtieSaveImageToGallery:

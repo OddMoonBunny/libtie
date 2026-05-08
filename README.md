@@ -57,11 +57,9 @@ For ComfyUI, use the **libtie Pushed Prompt** node and connect its `positive` an
 
 ### Drop A1111 Images Into A Prompt Library Gallery
 
-In A1111 txt2img, libtie adds a **PL** button near the result gallery controls. Select a generated image, click **PL**, and enter the Prompt Library category, such as:
+In A1111 txt2img, libtie adds a **PL** button near the result gallery controls. Select a generated image and click **PL**.
 
-```text
-chars
-```
+The button sends the image to the local Prompt Library app at `http://127.0.0.1:8797/libtie/gallery/`. Prompt Library uses whichever category/character is currently selected there. No category prompt appears in A1111.
 
 The image is saved under:
 
@@ -75,7 +73,7 @@ The matching gallery entry is added to:
 D:\Repo\lib\bin\Debug\prompts.json
 ```
 
-ComfyUI exposes the same save endpoint at `/libtie/gallery`, and the **libtie Save Image To Gallery** node is the Comfy-native version of the A1111 gallery button. Connect an `IMAGE`, set the category, and it saves into the Prompt Library gallery while passing the image through.
+ComfyUI exposes the same save endpoint at `/libtie/gallery`, and the **libtie Save Image To Gallery** node is the Comfy-native version of the A1111 gallery button. Connect an `IMAGE` and set the category, or connect the `category` output from **libtie Pushed Prompt** so it follows the character/category currently selected in Prompt Library.
 
 ### Pull From Prompt Library In A1111
 

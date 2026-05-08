@@ -132,12 +132,16 @@ LATEST_PUSHED_PROMPT = {
     "negative": "",
     "mode": "Replace",
     "target": "txt2img",
+    "category": "",
+    "prompt_name": "",
 }
 
 
 def set_pushed_prompt(payload: dict) -> dict:
     positive = str(payload.get("positive") or payload.get("Positive") or "")
     negative = str(payload.get("negative") or payload.get("Negative") or "")
+    category = str(payload.get("category") or payload.get("Category") or "")
+    prompt_name = str(payload.get("promptName") or payload.get("prompt_name") or payload.get("Name") or "")
     mode = str(payload.get("mode") or "Replace")
     target = str(payload.get("target") or "txt2img")
 
@@ -151,6 +155,8 @@ def set_pushed_prompt(payload: dict) -> dict:
             "negative": negative,
             "mode": mode,
             "target": target,
+            "category": category,
+            "prompt_name": prompt_name,
         }
     )
     return {"ok": True, "id": LATEST_PUSHED_PROMPT["id"]}

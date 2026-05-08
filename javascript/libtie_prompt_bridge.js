@@ -23,11 +23,19 @@ function libtieSetPromptText(textarea, incoming, mode) {
   textarea.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-function libtieAddPromptToWebui(positive, negative, mode, targetTab) {
+function libtieRememberCategory(category) {
+  const value = (category || "").trim();
+  if (value.length > 0) {
+    localStorage.setItem("libtieGalleryCategory", value);
+  }
+}
+
+function libtieAddPromptToWebui(positive, negative, mode, targetTab, category) {
   const tab = targetTab === "img2img" ? "img2img" : "txt2img";
   const promptArea = libtieTextAreaForId(`${tab}_prompt`);
   const negativeArea = libtieTextAreaForId(`${tab}_neg_prompt`);
 
+  libtieRememberCategory(category);
   libtieSetPromptText(promptArea, positive, mode);
   libtieSetPromptText(negativeArea, negative, mode);
 
@@ -49,7 +57,8 @@ async function libtiePollPromptBridge() {
       payload.positive || "",
       payload.negative || "",
       payload.mode || "Replace",
-      payload.target || "txt2img"
+      payload.target || "txt2img",
+      payload.category || ""
     );
   } catch (_error) {
     // WebUI may still be starting or the extension endpoint may be unavailable.
@@ -83,15 +92,10 @@ async function libtieSendSelectedImageToGallery() {
     return;
   }
 
-  const previous = localStorage.getItem("libtieGalleryCategory") || "chars";
-  const category = prompt("Prompt Library gallery category:", previous);
-  if (!category) return;
-  localStorage.setItem("libtieGalleryCategory", category);
-
-  const response = await fetch("/libtie/gallery", {
+  const response = await fetch("http://127.0.0.1:8797/libtie/gallery/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ category, image }),
+    body: JSON.stringify({ image }),
   });
   const payload = await response.json();
 
@@ -100,7 +104,7 @@ async function libtieSendSelectedImageToGallery() {
     return;
   }
 
-  alert(`Saved to ${payload.category} gallery.`);
+  alert("Saved to the selected Prompt Library gallery.");
 }
 
 function libtieCreateGalleryButton() {
