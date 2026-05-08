@@ -92,12 +92,20 @@ async function libtieSendSelectedImageToGallery() {
     return;
   }
 
-  const response = await fetch("http://127.0.0.1:8797/libtie/gallery/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image }),
-  });
-  const payload = await response.json();
+  let response;
+  let payload;
+  try {
+    response = await fetch("http://127.0.0.1:8797/libtie/gallery/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image }),
+    });
+    const text = await response.text();
+    payload = text ? JSON.parse(text) : {};
+  } catch (error) {
+    alert(`libtie gallery save failed: ${error.message}`);
+    return;
+  }
 
   if (!response.ok || !payload.ok) {
     alert(`libtie gallery save failed: ${payload.error || response.statusText}`);
