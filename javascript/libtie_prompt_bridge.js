@@ -117,10 +117,11 @@ async function libtiePollPromptBridge() {
 
 setInterval(libtiePollPromptBridge, 750);
 
-function libtieSelectedImageDataUrl() {
+function libtieSelectedImageDataUrl(tab) {
   const root = gradioApp();
+  const gallerySelector = `#${tab}_gallery`;
   const selected = root.querySelector(
-    "#txt2img_gallery .thumbnail-item.selected img, #txt2img_gallery .thumbnail-item:focus img, #txt2img_gallery img"
+    `${gallerySelector} .thumbnail-item.selected img, ${gallerySelector} .thumbnail-item:focus img, ${gallerySelector} img`
   );
   if (!selected) return null;
 
@@ -135,10 +136,10 @@ function libtieSelectedImageDataUrl() {
   return canvas.toDataURL("image/png");
 }
 
-async function libtieSendSelectedImageToGallery() {
-  const image = libtieSelectedImageDataUrl();
+async function libtieSendSelectedImageToGallery(tab) {
+  const image = libtieSelectedImageDataUrl(tab);
   if (!image) {
-    alert("libtie could not find a selected txt2img gallery image.");
+    alert(`libtie could not find a selected ${tab} gallery image.`);
     return;
   }
 
@@ -165,14 +166,14 @@ async function libtieSendSelectedImageToGallery() {
   alert("Saved to the selected Prompt Library gallery.");
 }
 
-function libtieCreateGalleryButton() {
+function libtieCreateGalleryButton(tab) {
   const button = document.createElement("button");
   button.type = "button";
-  button.title = "Send selected image to Prompt Library gallery";
+  button.title = `Send selected ${tab} image to Prompt Library gallery`;
   button.textContent = "PL";
   button.className = "lg secondary gradio-button tool";
   button.style.minWidth = "42px";
-  button.addEventListener("click", libtieSendSelectedImageToGallery);
+  button.addEventListener("click", () => libtieSendSelectedImageToGallery(tab));
   return button;
 }
 
@@ -220,16 +221,34 @@ function libtieInjectSavePromptButtons() {
   const root = gradioApp();
   if (!root) return;
 
-  ["txt2img", "img2img"].forEach((tab) => {
-    const buttonId = `libtie_save_pl_${tab}`;
-    if (root.querySelector(`#${buttonId}`)) return;
+  const promptTabs = ["txt2img", "img2img"];
+  const galleryTabs = ["txt2img", "img2img", "inpaint", "extras"];
 
+  promptTabs.forEach((tab) => {
     const actionsColumn = root.querySelector(`#${tab}_actions_column`);
     if (!actionsColumn) return;
 
-    const button = libtieCreateSavePromptButton(tab);
-    button.id = buttonId;
-    actionsColumn.appendChild(button);
+    const savePromptId = `libtie_save_pl_${tab}`;
+    if (!root.querySelector(`#${savePromptId}`)) {
+      const button = libtieCreateSavePromptButton(tab);
+      button.id = savePromptId;
+      actionsColumn.appendChild(button);
+    }
+  });
+
+  galleryTabs.forEach((tab) => {
+    const galleryButtonId = `libtie_save_gallery_${tab}`;
+    if (root.querySelector(`#${galleryButtonId}`)) return;
+
+    const galleryHost =
+      root.querySelector(`#image_buttons_${tab}`) ||
+      root.querySelector(`#${tab}_gallery_container`) ||
+      root.querySelector(`#${tab}_actions_column`);
+    if (!galleryHost) return;
+
+    const galleryButton = libtieCreateGalleryButton(tab);
+    galleryButton.id = galleryButtonId;
+    galleryHost.appendChild(galleryButton);
   });
 }
 
