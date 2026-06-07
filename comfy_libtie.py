@@ -35,8 +35,8 @@ class LibtiePromptFromLibrary:
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING")
-    RETURN_NAMES = ("positive", "negative", "status")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "INT", "INT")
+    RETURN_NAMES = ("positive", "negative", "status", "width", "height")
     FUNCTION = "load_prompt"
     CATEGORY = "libtie"
 
@@ -44,7 +44,8 @@ class LibtiePromptFromLibrary:
         categories, message = libtie_shared.load_library(library_path)
         prompt = libtie_shared.find_prompt(categories, category, prompt_name)
         positive, negative = libtie_shared.prompt_values(prompt)
-        return positive, negative, message or ""
+        width, height = libtie_shared.prompt_dimensions(prompt)
+        return positive, negative, message or "", width, height
 
 
 class LibtiePromptByName:
@@ -58,8 +59,8 @@ class LibtiePromptByName:
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING")
-    RETURN_NAMES = ("positive", "negative", "status")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "INT", "INT")
+    RETURN_NAMES = ("positive", "negative", "status", "width", "height")
     FUNCTION = "load_prompt"
     CATEGORY = "libtie"
 
@@ -67,7 +68,8 @@ class LibtiePromptByName:
         categories, message = libtie_shared.load_library(library_path)
         prompt = libtie_shared.find_prompt(categories, category, prompt_name)
         positive, negative = libtie_shared.prompt_values(prompt)
-        return positive, negative, message or ""
+        width, height = libtie_shared.prompt_dimensions(prompt)
+        return positive, negative, message or "", width, height
 
 
 class LibtiePushedPrompt:
@@ -75,8 +77,8 @@ class LibtiePushedPrompt:
     def INPUT_TYPES(cls):
         return {"required": {"fallback": ("STRING", {"default": ""})}}
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "INT")
-    RETURN_NAMES = ("positive", "negative", "category", "push_id")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "INT", "INT", "INT")
+    RETURN_NAMES = ("positive", "negative", "category", "push_id", "width", "height")
     FUNCTION = "current_prompt"
     CATEGORY = "libtie"
 
@@ -85,7 +87,9 @@ class LibtiePushedPrompt:
         positive = payload.get("positive") or fallback
         negative = payload.get("negative") or ""
         category = payload.get("category") or ""
-        return positive, negative, category, int(payload.get("id") or 0)
+        width = int(payload.get("width") or 512)
+        height = int(payload.get("height") or 512)
+        return positive, negative, category, int(payload.get("id") or 0), width, height
 
 
 class LibtieSaveImageToGallery:

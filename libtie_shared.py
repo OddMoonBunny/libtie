@@ -113,6 +113,34 @@ def prompt_values(prompt: dict | None) -> tuple[str, str]:
     return str(positive), str(negative)
 
 
+def _coerce_int(value, default: int) -> int:
+    try:
+        if value is None:
+            return default
+        return int(str(value).strip())
+    except Exception:
+        return default
+
+
+def prompt_dimensions(prompt: dict | None, default_width: int = 512, default_height: int = 512) -> tuple[int, int]:
+    if not prompt:
+        return default_width, default_height
+
+    width = (
+        prompt.get("Width")
+        or prompt.get("width")
+        or prompt.get("W")
+        or prompt.get("w")
+    )
+    height = (
+        prompt.get("Height")
+        or prompt.get("height")
+        or prompt.get("H")
+        or prompt.get("h")
+    )
+    return _coerce_int(width, default_width), _coerce_int(height, default_height)
+
+
 def join_prompt(existing: str, incoming: str, mode: str) -> str:
     existing = (existing or "").strip()
     incoming = (incoming or "").strip()
@@ -134,6 +162,8 @@ LATEST_PUSHED_PROMPT = {
     "target": "txt2img",
     "category": "",
     "prompt_name": "",
+    "width": 512,
+    "height": 512,
 }
 
 
@@ -144,6 +174,8 @@ def set_pushed_prompt(payload: dict) -> dict:
     prompt_name = str(payload.get("promptName") or payload.get("prompt_name") or payload.get("Name") or "")
     mode = str(payload.get("mode") or "Replace")
     target = str(payload.get("target") or "txt2img")
+    width = _coerce_int(payload.get("width") or payload.get("Width") or payload.get("W"), 512)
+    height = _coerce_int(payload.get("height") or payload.get("Height") or payload.get("H"), 512)
 
     if mode not in {"Append", "Replace"}:
         mode = "Replace"
@@ -157,6 +189,8 @@ def set_pushed_prompt(payload: dict) -> dict:
             "target": target,
             "category": category,
             "prompt_name": prompt_name,
+            "width": width,
+            "height": height,
         }
     )
     return {"ok": True, "id": LATEST_PUSHED_PROMPT["id"]}

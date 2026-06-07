@@ -23,6 +23,25 @@ function libtieSetPromptText(textarea, incoming, mode) {
   textarea.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function libtieSetSizeValue(controlId, value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return;
+
+  const root = gradioApp();
+  const wrapper = root.querySelector(`#${controlId}`);
+  if (!wrapper) return;
+
+  const next = String(parsed);
+  const inputs = wrapper.querySelectorAll('input[type="number"], input[type="range"]');
+  if (inputs.length === 0) return;
+
+  inputs.forEach((input) => {
+    input.value = next;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
 function libtieRememberCategory(category) {
   const value = (category || "").trim();
   if (value.length > 0) {
@@ -30,7 +49,7 @@ function libtieRememberCategory(category) {
   }
 }
 
-function libtieAddPromptToWebui(positive, negative, mode, targetTab, category) {
+function libtieAddPromptToWebui(positive, negative, mode, targetTab, category, width, height) {
   const tab = targetTab === "img2img" ? "img2img" : "txt2img";
   const promptArea = libtieTextAreaForId(`${tab}_prompt`);
   const negativeArea = libtieTextAreaForId(`${tab}_neg_prompt`);
@@ -38,6 +57,8 @@ function libtieAddPromptToWebui(positive, negative, mode, targetTab, category) {
   libtieRememberCategory(category);
   libtieSetPromptText(promptArea, positive, mode);
   libtieSetPromptText(negativeArea, negative, mode);
+  libtieSetSizeValue(`${tab}_width`, width);
+  libtieSetSizeValue(`${tab}_height`, height);
 
   return [];
 }
@@ -58,7 +79,9 @@ async function libtiePollPromptBridge() {
       payload.negative || "",
       payload.mode || "Replace",
       payload.target || "txt2img",
-      payload.category || ""
+      payload.category || "",
+      payload.width,
+      payload.height
     );
   } catch (_error) {
     // WebUI may still be starting or the extension endpoint may be unavailable.

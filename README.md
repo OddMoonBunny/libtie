@@ -33,6 +33,8 @@ The custom node package provides:
 - **libtie Pushed Prompt** - outputs the latest prompt pushed from the Prompt Library app.
 - **libtie Save Image To Gallery** - saves a workflow image into a Prompt Library category gallery.
 
+For ComfyUI, both **libtie Prompt From Library** and **libtie Prompt By Name** also output `width` and `height` (defaults to `512x512` when those fields are missing in the prompt JSON). **libtie Pushed Prompt** now exposes pushed `width` and `height` too.
+
 ## Usage
 
 ### Push From Prompt Library
@@ -52,6 +54,7 @@ http://127.0.0.1:8188/libtie/prompt
 ```
 
 For A1111, the extension browser script applies the newest pushed prompt to txt2img.
+It also applies pushed `width` and `height` values (when provided) to the target tab's size controls.
 
 For ComfyUI, use the **libtie Pushed Prompt** node and connect its `positive` and `negative` outputs into your CLIP Text Encode nodes.
 

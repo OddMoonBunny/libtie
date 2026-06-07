@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import os
 import sys
 from pathlib import Path
 
@@ -16,53 +14,12 @@ if str(EXTENSION_ROOT) not in sys.path:
 import libtie_shared
 
 
-PROMPT_LIBRARY_ROOT = Path(os.environ.get("LIBTIE_PROMPT_LIBRARY_DIR", r"D:\Repo\lib"))
-DEFAULT_PROMPTS_PATH = Path(
-    os.environ.get(
-        "LIBTIE_PROMPTS_JSON",
-        str(PROMPT_LIBRARY_ROOT / "bin" / "Debug" / "prompts.json"),
-    )
-)
-LATEST_PUSHED_PROMPT = {
-    "id": 0,
-    "positive": "",
-    "negative": "",
-    "mode": "Replace",
-    "target": "txt2img",
-    "category": "",
-    "prompt_name": "",
-}
-
-
 def receive_prompt(payload: dict = Body(...)):
-    positive = str(payload.get("positive") or payload.get("Positive") or "")
-    negative = str(payload.get("negative") or payload.get("Negative") or "")
-    category = str(payload.get("category") or payload.get("Category") or "")
-    prompt_name = str(payload.get("promptName") or payload.get("prompt_name") or payload.get("Name") or "")
-    mode = str(payload.get("mode") or "Replace")
-    target = str(payload.get("target") or "txt2img")
-
-    if mode not in {"Append", "Replace"}:
-        mode = "Replace"
-    if target not in {"txt2img", "img2img"}:
-        target = "txt2img"
-
-    LATEST_PUSHED_PROMPT.update(
-        {
-            "id": int(LATEST_PUSHED_PROMPT["id"]) + 1,
-            "positive": positive,
-            "negative": negative,
-            "mode": mode,
-            "target": target,
-            "category": category,
-            "prompt_name": prompt_name,
-        }
-    )
-    return {"ok": True, "id": LATEST_PUSHED_PROMPT["id"]}
+    return libtie_shared.set_pushed_prompt(payload)
 
 
 def latest_prompt():
-    return LATEST_PUSHED_PROMPT
+    return libtie_shared.LATEST_PUSHED_PROMPT
 
 
 def save_gallery_image(payload: dict = Body(...)):
