@@ -68,14 +68,17 @@ function libtieRememberCategory(category) {
   }
 }
 
-function libtieAddPromptToWebui(positive, negative, mode, targetTab, category, width, height, batchCount, batchSize) {
+function libtieAddPromptToWebui(positive, negative, mode, targetTab, category, width, height, batchCount, batchSize, kind) {
   const tab = targetTab === "img2img" ? "img2img" : "txt2img";
-  const promptArea = libtieTextAreaForId(`${tab}_prompt`);
-  const negativeArea = libtieTextAreaForId(`${tab}_neg_prompt`);
 
-  libtieRememberCategory(category);
-  libtieSetPromptText(promptArea, positive, mode);
-  libtieSetPromptText(negativeArea, negative, mode);
+  if (kind !== "setup") {
+    const promptArea = libtieTextAreaForId(`${tab}_prompt`);
+    const negativeArea = libtieTextAreaForId(`${tab}_neg_prompt`);
+    libtieRememberCategory(category);
+    libtieSetPromptText(promptArea, positive, mode);
+    libtieSetPromptText(negativeArea, negative, mode);
+  }
+
   libtieSetSizeValue(`${tab}_width`, width);
   libtieSetSizeValue(`${tab}_height`, height);
   libtieSetBatchValue(`${tab}_batch_count`, batchCount);
@@ -104,7 +107,8 @@ async function libtiePollPromptBridge() {
       payload.width,
       payload.height,
       payload.batch_count,
-      payload.batch_size
+      payload.batch_size,
+      payload.kind || "prompt"
     );
   } catch (_error) {
     // WebUI may still be starting or the extension endpoint may be unavailable.

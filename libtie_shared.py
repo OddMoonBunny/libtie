@@ -175,6 +175,7 @@ def join_prompt(existing: str, incoming: str, mode: str) -> str:
 
 LATEST_PUSHED_PROMPT = {
     "id": 0,
+    "kind": "prompt",
     "positive": "",
     "negative": "",
     "mode": "Replace",
@@ -189,16 +190,36 @@ LATEST_PUSHED_PROMPT = {
 
 
 def set_pushed_prompt(payload: dict) -> dict:
+    kind = str(payload.get("kind") or "prompt").lower()
+    if kind not in {"prompt", "setup"}:
+        kind = "prompt"
+
+    target = str(payload.get("target") or LATEST_PUSHED_PROMPT.get("target") or "txt2img")
+    width = _coerce_int(payload.get("width") or payload.get("Width") or payload.get("W"), LATEST_PUSHED_PROMPT.get("width", 512))
+    height = _coerce_int(payload.get("height") or payload.get("Height") or payload.get("H"), LATEST_PUSHED_PROMPT.get("height", 512))
+    batch_count = _coerce_int(payload.get("batch_count") or payload.get("BatchCount"), LATEST_PUSHED_PROMPT.get("batch_count", 1))
+    batch_size = _coerce_int(payload.get("batch_size") or payload.get("BatchSize"), LATEST_PUSHED_PROMPT.get("batch_size", 1))
+
+    if kind == "setup":
+        # Setup-only push: preserve existing prompt text/mode/category/name
+        LATEST_PUSHED_PROMPT.update(
+            {
+                "id": int(LATEST_PUSHED_PROMPT["id"]) + 1,
+                "kind": "setup",
+                "target": target,
+                "width": width,
+                "height": height,
+                "batch_count": batch_count,
+                "batch_size": batch_size,
+            }
+        )
+        return {"ok": True, "id": LATEST_PUSHED_PROMPT["id"]}
+
     positive = str(payload.get("positive") or payload.get("Positive") or "")
     negative = str(payload.get("negative") or payload.get("Negative") or "")
     category = str(payload.get("category") or payload.get("Category") or "")
     prompt_name = str(payload.get("promptName") or payload.get("prompt_name") or payload.get("Name") or "")
     mode = str(payload.get("mode") or "Replace")
-    target = str(payload.get("target") or "txt2img")
-    width = _coerce_int(payload.get("width") or payload.get("Width") or payload.get("W"), 512)
-    height = _coerce_int(payload.get("height") or payload.get("Height") or payload.get("H"), 512)
-    batch_count = _coerce_int(payload.get("batch_count") or payload.get("BatchCount"), 1)
-    batch_size = _coerce_int(payload.get("batch_size") or payload.get("BatchSize"), 1)
 
     if mode not in {"Append", "Replace"}:
         mode = "Replace"
@@ -206,6 +227,7 @@ def set_pushed_prompt(payload: dict) -> dict:
     LATEST_PUSHED_PROMPT.update(
         {
             "id": int(LATEST_PUSHED_PROMPT["id"]) + 1,
+            "kind": "prompt",
             "positive": positive,
             "negative": negative,
             "mode": mode,
