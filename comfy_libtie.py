@@ -35,8 +35,8 @@ class LibtiePromptFromLibrary:
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "INT", "INT")
-    RETURN_NAMES = ("positive", "negative", "status", "width", "height")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "INT", "INT", "INT", "INT")
+    RETURN_NAMES = ("positive", "negative", "status", "width", "height", "batch_count", "batch_size")
     FUNCTION = "load_prompt"
     CATEGORY = "libtie"
 
@@ -45,7 +45,8 @@ class LibtiePromptFromLibrary:
         prompt = libtie_shared.find_prompt(categories, category, prompt_name)
         positive, negative = libtie_shared.prompt_values(prompt)
         width, height = libtie_shared.prompt_dimensions(prompt)
-        return positive, negative, message or "", width, height
+        batch_count, batch_size = libtie_shared.prompt_batch(prompt)
+        return positive, negative, message or "", width, height, batch_count, batch_size
 
 
 class LibtiePromptByName:
@@ -59,8 +60,8 @@ class LibtiePromptByName:
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "INT", "INT")
-    RETURN_NAMES = ("positive", "negative", "status", "width", "height")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "INT", "INT", "INT", "INT")
+    RETURN_NAMES = ("positive", "negative", "status", "width", "height", "batch_count", "batch_size")
     FUNCTION = "load_prompt"
     CATEGORY = "libtie"
 
@@ -69,7 +70,8 @@ class LibtiePromptByName:
         prompt = libtie_shared.find_prompt(categories, category, prompt_name)
         positive, negative = libtie_shared.prompt_values(prompt)
         width, height = libtie_shared.prompt_dimensions(prompt)
-        return positive, negative, message or "", width, height
+        batch_count, batch_size = libtie_shared.prompt_batch(prompt)
+        return positive, negative, message or "", width, height, batch_count, batch_size
 
 
 class LibtiePushedPrompt:
@@ -77,8 +79,8 @@ class LibtiePushedPrompt:
     def INPUT_TYPES(cls):
         return {"required": {"fallback": ("STRING", {"default": ""})}}
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "INT", "INT", "INT")
-    RETURN_NAMES = ("positive", "negative", "category", "push_id", "width", "height")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "INT", "INT", "INT", "INT", "INT")
+    RETURN_NAMES = ("positive", "negative", "category", "push_id", "width", "height", "batch_count", "batch_size")
     FUNCTION = "current_prompt"
     CATEGORY = "libtie"
 
@@ -89,7 +91,9 @@ class LibtiePushedPrompt:
         category = payload.get("category") or ""
         width = int(payload.get("width") or 512)
         height = int(payload.get("height") or 512)
-        return positive, negative, category, int(payload.get("id") or 0), width, height
+        batch_count = int(payload.get("batch_count") or 1)
+        batch_size = int(payload.get("batch_size") or 1)
+        return positive, negative, category, int(payload.get("id") or 0), width, height, batch_count, batch_size
 
 
 class LibtieSaveImageToGallery:
@@ -130,6 +134,50 @@ class LibtieSaveImageToGallery:
         return image, f"Saved {result['name']} to {result['category']}"
 
 
+class LibtieSavePromptToLibrary:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "positive": ("STRING", {"default": "", "multiline": True}),
+                "negative": ("STRING", {"default": "", "multiline": True}),
+                "library_endpoint": ("STRING", {"default": "http://127.0.0.1:8797/libtie/saveprompt/"}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("status",)
+    FUNCTION = "save_prompt"
+    CATEGORY = "libtie"
+    OUTPUT_NODE = True
+
+    def save_prompt(self, positive, negative, library_endpoint):
+        import json as _json
+        import urllib.request
+        import urllib.error
+
+        data = _json.dumps(
+            {"positive": positive or "", "negative": negative or "", "source": "comfyui"}
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            library_endpoint,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=5) as response:
+                body = response.read().decode("utf-8")
+            payload = _json.loads(body) if body else {}
+            if not payload.get("ok"):
+                return (f"Save failed: {payload.get('error') or 'unknown error'}",)
+            return (f"Saved to {payload.get('target') or 'selected prompt'}",)
+        except urllib.error.URLError as exc:
+            return (f"Could not reach Prompt Library at {library_endpoint}: {exc}",)
+        except Exception as exc:
+            return (f"Save error: {exc}",)
+
+
 def register_routes():
     if PromptServer is None or web is None:
         return
@@ -159,6 +207,7 @@ NODE_CLASS_MAPPINGS = {
     "LibtiePromptByName": LibtiePromptByName,
     "LibtiePushedPrompt": LibtiePushedPrompt,
     "LibtieSaveImageToGallery": LibtieSaveImageToGallery,
+    "LibtieSavePromptToLibrary": LibtieSavePromptToLibrary,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -166,4 +215,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LibtiePromptByName": "libtie Prompt By Name",
     "LibtiePushedPrompt": "libtie Pushed Prompt",
     "LibtieSaveImageToGallery": "libtie Save Image To Gallery",
+    "LibtieSavePromptToLibrary": "libtie Save Prompt To Library",
 }

@@ -42,6 +42,25 @@ function libtieSetSizeValue(controlId, value) {
   });
 }
 
+function libtieSetBatchValue(controlId, value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return;
+
+  const root = gradioApp();
+  const wrapper = root.querySelector(`#${controlId}`);
+  if (!wrapper) return;
+
+  const next = String(parsed);
+  const inputs = wrapper.querySelectorAll('input[type="number"], input[type="range"]');
+  if (inputs.length === 0) return;
+
+  inputs.forEach((input) => {
+    input.value = next;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
 function libtieRememberCategory(category) {
   const value = (category || "").trim();
   if (value.length > 0) {
@@ -49,7 +68,7 @@ function libtieRememberCategory(category) {
   }
 }
 
-function libtieAddPromptToWebui(positive, negative, mode, targetTab, category, width, height) {
+function libtieAddPromptToWebui(positive, negative, mode, targetTab, category, width, height, batchCount, batchSize) {
   const tab = targetTab === "img2img" ? "img2img" : "txt2img";
   const promptArea = libtieTextAreaForId(`${tab}_prompt`);
   const negativeArea = libtieTextAreaForId(`${tab}_neg_prompt`);
@@ -59,6 +78,8 @@ function libtieAddPromptToWebui(positive, negative, mode, targetTab, category, w
   libtieSetPromptText(negativeArea, negative, mode);
   libtieSetSizeValue(`${tab}_width`, width);
   libtieSetSizeValue(`${tab}_height`, height);
+  libtieSetBatchValue(`${tab}_batch_count`, batchCount);
+  libtieSetBatchValue(`${tab}_batch_size`, batchSize);
 
   return [];
 }
@@ -81,7 +102,9 @@ async function libtiePollPromptBridge() {
       payload.target || "txt2img",
       payload.category || "",
       payload.width,
-      payload.height
+      payload.height,
+      payload.batch_count,
+      payload.batch_size
     );
   } catch (_error) {
     // WebUI may still be starting or the extension endpoint may be unavailable.
@@ -149,17 +172,61 @@ function libtieCreateGalleryButton() {
   return button;
 }
 
-function libtieInstallGalleryButton() {
-  const root = gradioApp();
-  const gallery = root.querySelector("#txt2img_gallery");
-  if (!gallery || root.querySelector("#libtie_send_gallery")) return;
+async function libtieSavePromptsToLibrary(tab) {
+  const promptArea = libtieTextAreaForId(`${tab}_prompt`);
+  const negativeArea = libtieTextAreaForId(`${tab}_neg_prompt`);
+  const positive = promptArea ? promptArea.value || "" : "";
+  const negative = negativeArea ? negativeArea.value || "" : "";
 
-  const buttons = gallery.parentElement?.querySelector(".form") || gallery.parentElement;
-  if (!buttons) return;
+  let response;
+  let payload;
+  try {
+    response = await fetch("http://127.0.0.1:8797/libtie/saveprompt/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ positive, negative, source: `a1111:${tab}` }),
+    });
+    const text = await response.text();
+    payload = text ? JSON.parse(text) : {};
+  } catch (error) {
+    alert(`libtie save prompt failed: ${error.message}`);
+    return;
+  }
 
-  const button = libtieCreateGalleryButton();
-  button.id = "libtie_send_gallery";
-  buttons.appendChild(button);
+  if (!response.ok || !payload.ok) {
+    alert(`libtie save prompt failed: ${payload.error || response.statusText}`);
+    return;
+  }
+
+  alert(`Saved prompts to Prompt Library (${payload.target || "selected"}).`);
 }
 
-setInterval(libtieInstallGalleryButton, 1000);
+function libtieCreateSavePromptButton(tab) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.title = "Save current prompts to selected Prompt Library entry";
+  button.textContent = "Save PL";
+  button.className = "lg secondary gradio-button tool";
+  button.style.minWidth = "70px";
+  button.addEventListener("click", () => libtieSavePromptsToLibrary(tab));
+  return button;
+}
+
+function libtieInjectSavePromptButtons() {
+  const root = gradioApp();
+  if (!root) return;
+
+  ["txt2img", "img2img"].forEach((tab) => {
+    const buttonId = `libtie_save_pl_${tab}`;
+    if (root.querySelector(`#${buttonId}`)) return;
+
+    const actionsColumn = root.querySelector(`#${tab}_actions_column`);
+    if (!actionsColumn) return;
+
+    const button = libtieCreateSavePromptButton(tab);
+    button.id = buttonId;
+    actionsColumn.appendChild(button);
+  });
+}
+
+setInterval(libtieInjectSavePromptButtons, 1500);

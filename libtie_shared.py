@@ -141,6 +141,25 @@ def prompt_dimensions(prompt: dict | None, default_width: int = 512, default_hei
     return _coerce_int(width, default_width), _coerce_int(height, default_height)
 
 
+def prompt_batch(prompt: dict | None, default_batch_count: int = 1, default_batch_size: int = 1) -> tuple[int, int]:
+    if not prompt:
+        return default_batch_count, default_batch_size
+
+    batch_count = (
+        prompt.get("BatchCount")
+        or prompt.get("batch_count")
+        or prompt.get("BC")
+        or prompt.get("bc")
+    )
+    batch_size = (
+        prompt.get("BatchSize")
+        or prompt.get("batch_size")
+        or prompt.get("BS")
+        or prompt.get("bs")
+    )
+    return _coerce_int(batch_count, default_batch_count), _coerce_int(batch_size, default_batch_size)
+
+
 def join_prompt(existing: str, incoming: str, mode: str) -> str:
     existing = (existing or "").strip()
     incoming = (incoming or "").strip()
@@ -164,6 +183,8 @@ LATEST_PUSHED_PROMPT = {
     "prompt_name": "",
     "width": 512,
     "height": 512,
+    "batch_count": 1,
+    "batch_size": 1,
 }
 
 
@@ -176,6 +197,8 @@ def set_pushed_prompt(payload: dict) -> dict:
     target = str(payload.get("target") or "txt2img")
     width = _coerce_int(payload.get("width") or payload.get("Width") or payload.get("W"), 512)
     height = _coerce_int(payload.get("height") or payload.get("Height") or payload.get("H"), 512)
+    batch_count = _coerce_int(payload.get("batch_count") or payload.get("BatchCount"), 1)
+    batch_size = _coerce_int(payload.get("batch_size") or payload.get("BatchSize"), 1)
 
     if mode not in {"Append", "Replace"}:
         mode = "Replace"
@@ -191,6 +214,8 @@ def set_pushed_prompt(payload: dict) -> dict:
             "prompt_name": prompt_name,
             "width": width,
             "height": height,
+            "batch_count": batch_count,
+            "batch_size": batch_size,
         }
     )
     return {"ok": True, "id": LATEST_PUSHED_PROMPT["id"]}
@@ -227,43 +252,23 @@ def _decode_data_url(data_url: str) -> tuple[bytes, str]:
 
 
 def save_gallery_image(payload: dict) -> dict:
-    category = _safe_name(str(payload.get("category") or payload.get("Category") or "chars"))
-    image_data = str(payload.get("image") or payload.get("image_data") or payload.get("Image") or "")
-    image_bytes, ext = _decode_data_url(image_data)
+    data_url = payload.get("imageData") or payload.get("image_data")
+    if not data_url:
+        return {"ok": False, "error": "No image data provided"}
 
-    build_dir = Path(str(payload.get("build_dir") or PROMPT_LIBRARY_BUILD_DIR))
-    prompts_path = build_dir / "prompts.json"
-    image_dir = build_dir / "images" / category
-    image_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        image_bytes, ext = _decode_data_url(data_url)
+    except Exception as exc:
+        return {"ok": False, "error": f"Could not decode image data: {exc}"}
 
-    entry_id = str(uuid.uuid4())
-    entry_name = f"{category}_gallery_{entry_id}"
-    dest_path = image_dir / f"{entry_name}.{ext}"
-    dest_path.write_bytes(image_bytes)
+    filename = f'{_safe_name(payload.get("name") or "image")}_{uuid.uuid4().hex}.{ext}'
+    gallery_dir = PROMPT_LIBRARY_BUILD_DIR / "gallery"
+    gallery_dir.mkdir(parents=True, exist_ok=True)
+    output_path = gallery_dir / filename
 
-    categories = _load_raw_prompt_data(prompts_path)
-    category_entry = None
-    for item in categories:
-        if isinstance(item, dict) and item.get("Category") == category:
-            category_entry = item
-            break
+    try:
+        output_path.write_bytes(image_bytes)
+    except Exception as exc:
+        return {"ok": False, "error": f"Could not write image to {output_path}: {exc}"}
 
-    if category_entry is None:
-        category_entry = {"Category": category, "Prompts": []}
-        categories.append(category_entry)
-
-    prompts = category_entry.setdefault("Prompts", [])
-    prompts.append({"Name": entry_name, "Positive": "", "Negative": "", "ImagePath": str(dest_path)})
-
-    prompts_path.parent.mkdir(parents=True, exist_ok=True)
-    with prompts_path.open("w", encoding="utf-8") as handle:
-        json.dump(categories, handle, indent=2)
-        handle.write("\n")
-
-    return {
-        "ok": True,
-        "category": category,
-        "name": entry_name,
-        "image_path": str(dest_path),
-        "prompts_path": str(prompts_path),
-    }
+    return {"ok": True, "filename": filename}
